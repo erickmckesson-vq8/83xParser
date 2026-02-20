@@ -1,0 +1,306 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>83x Parser — EDI 835/837 to Excel</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+            background: #f0f4f8;
+            color: #2d3748;
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+
+        header {
+            width: 100%;
+            background: linear-gradient(135deg, #2b5797 0%, #1a365d 100%);
+            color: white;
+            padding: 2rem;
+            text-align: center;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.15);
+        }
+        header h1 {
+            font-size: 1.8rem;
+            font-weight: 700;
+            margin-bottom: 0.3rem;
+        }
+        header p {
+            font-size: 0.95rem;
+            opacity: 0.85;
+        }
+
+        .container {
+            max-width: 700px;
+            width: 100%;
+            padding: 2rem;
+        }
+
+        .drop-zone {
+            border: 3px dashed #a0b4cc;
+            border-radius: 16px;
+            padding: 4rem 2rem;
+            text-align: center;
+            background: white;
+            cursor: pointer;
+            transition: all 0.25s ease;
+            position: relative;
+        }
+        .drop-zone:hover,
+        .drop-zone.drag-over {
+            border-color: #2b5797;
+            background: #ebf1f8;
+            transform: scale(1.01);
+        }
+        .drop-zone.drag-over {
+            box-shadow: 0 0 0 4px rgba(43,87,151,0.15);
+        }
+
+        .drop-icon {
+            font-size: 3.5rem;
+            margin-bottom: 1rem;
+            display: block;
+        }
+        .drop-zone h2 {
+            font-size: 1.3rem;
+            color: #2b5797;
+            margin-bottom: 0.5rem;
+        }
+        .drop-zone p {
+            color: #718096;
+            font-size: 0.9rem;
+        }
+        .drop-zone .supported {
+            margin-top: 1rem;
+            font-size: 0.8rem;
+            color: #a0aec0;
+        }
+
+        .file-input {
+            display: none;
+        }
+
+        .browse-btn {
+            display: inline-block;
+            margin-top: 1.2rem;
+            padding: 0.6rem 1.5rem;
+            background: #2b5797;
+            color: white;
+            border: none;
+            border-radius: 8px;
+            font-size: 0.9rem;
+            cursor: pointer;
+            transition: background 0.2s;
+        }
+        .browse-btn:hover { background: #1a365d; }
+
+        /* Status / results area */
+        .status {
+            margin-top: 1.5rem;
+            padding: 1.2rem;
+            border-radius: 12px;
+            display: none;
+            animation: fadeIn 0.3s ease;
+        }
+        @keyframes fadeIn { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: none; } }
+
+        .status.processing {
+            display: block;
+            background: #ebf8ff;
+            border: 1px solid #90cdf4;
+            color: #2b6cb0;
+        }
+        .status.success {
+            display: block;
+            background: #f0fff4;
+            border: 1px solid #9ae6b4;
+            color: #276749;
+        }
+        .status.error {
+            display: block;
+            background: #fff5f5;
+            border: 1px solid #feb2b2;
+            color: #c53030;
+        }
+
+        .status h3 {
+            font-size: 1rem;
+            margin-bottom: 0.4rem;
+        }
+        .status p {
+            font-size: 0.85rem;
+            line-height: 1.5;
+        }
+
+        .spinner {
+            display: inline-block;
+            width: 18px;
+            height: 18px;
+            border: 3px solid #90cdf4;
+            border-top-color: #2b6cb0;
+            border-radius: 50%;
+            animation: spin 0.8s linear infinite;
+            vertical-align: middle;
+            margin-right: 0.5rem;
+        }
+        @keyframes spin { to { transform: rotate(360deg); } }
+
+        .summary-table {
+            width: 100%;
+            margin-top: 0.8rem;
+            border-collapse: collapse;
+            font-size: 0.85rem;
+        }
+        .summary-table td {
+            padding: 0.3rem 0.6rem;
+            border-bottom: 1px solid #e2e8f0;
+        }
+        .summary-table td:first-child {
+            font-weight: 600;
+            width: 50%;
+        }
+
+        footer {
+            margin-top: auto;
+            padding: 1.5rem;
+            text-align: center;
+            font-size: 0.8rem;
+            color: #a0aec0;
+        }
+    </style>
+</head>
+<body>
+    <header>
+        <h1>83x Parser</h1>
+        <p>Convert EDI 835 (Remittance) &amp; 837 (Claim) files to readable Excel</p>
+    </header>
+
+    <div class="container">
+        <div class="drop-zone" id="dropZone">
+            <span class="drop-icon">&#128196;</span>
+            <h2>Drop your EDI files here</h2>
+            <p>or click to browse — multiple files supported</p>
+            <div class="supported">Supported: .edi .835 .837 .x12 .txt &mdash; drop multiple at once</div>
+            <input type="file" class="file-input" id="fileInput"
+                   accept=".edi,.835,.837,.x12,.txt,.dat" multiple>
+        </div>
+
+        <div class="status" id="status"></div>
+    </div>
+
+    <footer>
+        83x Parser &mdash; EDI 835/837 to Excel Converter
+    </footer>
+
+    <script>
+        const dropZone = document.getElementById('dropZone');
+        const fileInput = document.getElementById('fileInput');
+        const statusDiv = document.getElementById('status');
+
+        // Click to browse
+        dropZone.addEventListener('click', () => fileInput.click());
+        fileInput.addEventListener('change', (e) => {
+            if (e.target.files.length > 0) handleFiles(e.target.files);
+        });
+
+        // Drag events
+        ['dragenter', 'dragover'].forEach(evt => {
+            dropZone.addEventListener(evt, (e) => {
+                e.preventDefault();
+                dropZone.classList.add('drag-over');
+            });
+        });
+        ['dragleave', 'drop'].forEach(evt => {
+            dropZone.addEventListener(evt, (e) => {
+                e.preventDefault();
+                dropZone.classList.remove('drag-over');
+            });
+        });
+        dropZone.addEventListener('drop', (e) => {
+            const files = e.dataTransfer.files;
+            if (files.length > 0) handleFiles(files);
+        });
+
+        // Prevent browser from opening the file
+        document.addEventListener('dragover', (e) => e.preventDefault());
+        document.addEventListener('drop', (e) => e.preventDefault());
+
+        function handleFiles(files) {
+            const names = Array.from(files).map(f => f.name);
+            const label = names.length === 1
+                ? `<strong>${names[0]}</strong>`
+                : `<strong>${names.length} files</strong> (${names.join(', ')})`;
+            showStatus('processing',
+                `<span class="spinner"></span> Processing ${label}...`);
+
+            const formData = new FormData();
+            for (const f of files) {
+                formData.append('files', f);
+            }
+
+            fetch('/upload', { method: 'POST', body: formData })
+                .then(resp => {
+                    if (!resp.ok) {
+                        return resp.json().then(data => { throw new Error(data.error || 'Upload failed'); });
+                    }
+                    // Direct file download
+                    return resp.blob().then(blob => {
+                        const disposition = resp.headers.get('content-disposition') || '';
+                        const match = disposition.match(/filename="?([^"]+)"?/);
+                        const filename = match ? match[1] : 'output.xlsx';
+                        downloadBlob(blob, filename);
+                        return null;
+                    });
+                })
+                .then(() => {
+                    showStatus('success',
+                        `<h3>Download started!</h3><p>Your Excel file with data from ${names.length} file(s) is downloading.</p>`);
+                })
+                .catch(err => {
+                    showStatus('error',
+                        `<h3>Error</h3><p>${err.message}</p>`);
+                });
+
+            // Reset file input
+            fileInput.value = '';
+        }
+
+        function showStatus(type, html) {
+            statusDiv.className = 'status ' + type;
+            statusDiv.innerHTML = html;
+        }
+
+        function showSummary(data) {
+            let html = `<h3>File parsed successfully!</h3>`;
+            html += `<table class="summary-table">`;
+            html += `<tr><td>Transaction Type</td><td>${data.transaction_type}</td></tr>`;
+            html += `<tr><td>Total Claims</td><td>${data.total_claims}</td></tr>`;
+            html += `<tr><td>Total Service Lines</td><td>${data.total_service_lines}</td></tr>`;
+            if (data.total_payment !== undefined) {
+                html += `<tr><td>Total Payment</td><td>$${Number(data.total_payment).toLocaleString('en-US', {minimumFractionDigits:2})}</td></tr>`;
+            }
+            if (data.total_charges !== undefined) {
+                html += `<tr><td>Total Charges</td><td>$${Number(data.total_charges).toLocaleString('en-US', {minimumFractionDigits:2})}</td></tr>`;
+            }
+            html += `</table>`;
+            showStatus('success', html);
+        }
+
+        function downloadBlob(blob, filename) {
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = filename;
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            URL.revokeObjectURL(url);
+        }
+    </script>
+</body>
+</html>
