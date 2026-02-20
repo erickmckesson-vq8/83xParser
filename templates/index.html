@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>83x Parser — EDI 835/837 to Excel</title>
+    <title>Healthcare EDI and API Parser</title>
     <style>
         * { margin: 0; padding: 0; box-sizing: border-box; }
 
@@ -176,25 +176,25 @@
 </head>
 <body>
     <header>
-        <h1>83x Parser</h1>
-        <p>Convert EDI 835 (Remittance) &amp; 837 (Claim) files to readable Excel</p>
+        <h1>Healthcare EDI and API Parser</h1>
+        <p>Convert X12, HL7 v2, FHIR, CDA, NCPDP &amp; CSV files to readable Excel</p>
     </header>
 
     <div class="container">
         <div class="drop-zone" id="dropZone">
             <span class="drop-icon">&#128196;</span>
-            <h2>Drop your EDI files here</h2>
-            <p>or click to browse — multiple files supported</p>
-            <div class="supported">Supported: .edi .835 .837 .x12 .txt &mdash; drop multiple at once</div>
+            <h2>Drop your healthcare files here</h2>
+            <p>or click to browse — multiple files and formats supported</p>
+            <div class="supported">X12 (835, 837, 270, 271, 276, 277, 278, 834) &bull; HL7 v2.x &bull; FHIR (JSON/XML) &bull; CDA &bull; NCPDP &bull; CSV/TSV</div>
             <input type="file" class="file-input" id="fileInput"
-                   accept=".edi,.835,.837,.x12,.txt,.dat" multiple>
+                   accept=".edi,.835,.837,.x12,.txt,.dat,.hl7,.fhir,.json,.xml,.cda,.ncpdp,.csv,.tsv" multiple>
         </div>
 
         <div class="status" id="status"></div>
     </div>
 
     <footer>
-        83x Parser &mdash; EDI 835/837 to Excel Converter
+        Healthcare EDI and API Parser
     </footer>
 
     <script>

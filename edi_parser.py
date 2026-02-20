@@ -51,15 +51,11 @@ class EDIFile:
         return element_str.split(self.sub_element_sep)
 
     def get_transaction_type(self):
-        """Return '835', '837', or None based on the ST segment."""
+        """Return the ST01 transaction type code (e.g., '835', '837', '270') or None."""
         for seg in self.segments:
             elements = self.get_elements(seg)
             if elements[0].upper() == "ST":
-                code = elements[1] if len(elements) > 1 else ""
-                if code == "835":
-                    return "835"
-                elif code == "837":
-                    return "837"
+                return elements[1].strip() if len(elements) > 1 else None
         return None
 
     def get_transactions(self):

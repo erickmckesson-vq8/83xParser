@@ -78,14 +78,17 @@ def write_sheet(ws, headers, rows, currency_cols=None):
 # Combined Excel Writer — handles multiple 835 and 837 files in one workbook
 # ---------------------------------------------------------------------------
 
-def write_combined_excel(all_835, all_837, output_path):
-    """Write combined 835 and 837 data into a single Excel workbook.
+def write_combined_excel(all_835, all_837, output_path, other_formats=None):
+    """Write combined data from all formats into a single Excel workbook.
 
     Args:
         all_835: list of (filename, parsed_transactions) tuples for 835 files
         all_837: list of (filename, parsed_transactions) tuples for 837 files
         output_path: file path for the output Excel file
+        other_formats: list of (filename, format_name, sheets_list) tuples
+            where sheets_list = [{"name": ..., "headers": [...], "rows": [...], "currency_cols": [...]}]
     """
+    other_formats = other_formats or []
     wb = Workbook()
     first_sheet = True  # Track so we can rename the default sheet
 
@@ -322,6 +325,40 @@ def write_combined_excel(all_835, all_837, output_path):
                             c["claim_id"], dx["code"], dx["type"], dx["qualifier"],
                         ])
         write_sheet(ws_dx, dx_headers, dx_rows)
+
+    # -------------------------------------------------------------------
+    # Other formats (HL7 v2, FHIR, CDA, NCPDP, generic X12, CSV, etc.)
+    # -------------------------------------------------------------------
+    if other_formats:
+        # Merge sheets with the same name across files, adding Source File column
+        merged = {}  # sheet_name -> {"headers": [...], "rows": [...], "currency_cols": [...]}
+        for filename, format_name, sheets_list in other_formats:
+            for sheet in sheets_list:
+                sname = sheet["name"]
+                if sname not in merged:
+                    # Add Source File as first column
+                    merged[sname] = {
+                        "headers": ["Source File"] + sheet["headers"],
+                        "rows": [],
+                        # Shift currency cols by 1 for the Source File column
+                        "currency_cols": [c + 1 for c in sheet.get("currency_cols", [])],
+                    }
+                for row in sheet["rows"]:
+                    merged[sname]["rows"].append([filename] + list(row))
+
+        for sname, sdata in merged.items():
+            # Excel sheet names max 31 chars, no special chars
+            safe_name = sname[:31].replace("/", "-").replace("\\", "-")
+            safe_name = safe_name.replace("[", "(").replace("]", ")").replace("*", "")
+            safe_name = safe_name.replace("?", "").replace(":", "-")
+            if first_sheet:
+                ws = wb.active
+                ws.title = safe_name
+                first_sheet = False
+            else:
+                ws = wb.create_sheet(safe_name)
+            write_sheet(ws, sdata["headers"], sdata["rows"],
+                        currency_cols=sdata.get("currency_cols"))
 
     wb.save(output_path)
     return output_path

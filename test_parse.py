@@ -6,7 +6,7 @@ import sys
 from edi_parser import EDIFile
 from parser_835 import parse_835
 from parser_837 import parse_837
-from excel_writer import write_835_excel, write_837_excel
+from excel_writer import write_combined_excel
 
 # Sample 835 content
 SAMPLE_835 = (
@@ -131,7 +131,7 @@ def test_835():
                               f"${adj['amount']:.2f} ({adj['reason_description']})")
 
     output = "/tmp/test_835_output.xlsx"
-    write_835_excel(parsed, output)
+    write_combined_excel([("test_835.edi", parsed)], [], output)
     print(f"\nExcel written to: {output}")
     print(f"File size: {os.path.getsize(output):,} bytes")
 
@@ -164,7 +164,7 @@ def test_837():
                       f"x {svc['units']} units")
 
     output = "/tmp/test_837_output.xlsx"
-    write_837_excel(parsed, output)
+    write_combined_excel([], [("test_837.edi", parsed)], output)
     print(f"\nExcel written to: {output}")
     print(f"File size: {os.path.getsize(output):,} bytes")
 
